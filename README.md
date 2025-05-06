@@ -124,7 +124,3 @@ npm run build
 ```
 
 Les fichiers de production seront générés dans le dossier `dist/`.
-
-## 📝 Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
