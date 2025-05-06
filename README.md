@@ -24,19 +24,45 @@ TechTreasure est une application web moderne de commerce électronique construit
 
 ## 📦 Installation
 
-1. Clonez le dépôt :
+1. Mettez à jour les paquets et installez npm :
+```bash
+sudo apt update
+sudo apt install npm -y
+```
+
+2. Installez Node.js :
+```bash
+sudo npm i n -g
+sudo apt install node
+node -v
+```
+
+3. Installez et configurez Nginx :
+```bash
+sudo apt install nginx -y
+curl localhost
+```
+
+4. Préparez le répertoire web :
+ ```bash
+cd /var/www/html/
+sudo rm index.nginx-debian.html
+```
+
+5. Clonez le projet et installez les dépendances :
 ```bash
 git clone [url-du-repo]
+cd [project]
+sudo apt install npm
+npm i
 ```
 
-2. Installez les dépendances :
+6. Build le projet et déployez :
 ```bash
-npm install
-```
-
-3. Lancez le serveur de développement :
-```bash
-npm run dev
+npm run build
+cd disc
+ls
+sudo cp -r * /var/www/html/
 ```
 
 ## 🏗️ Structure du Projet
