@@ -88,8 +88,8 @@ jobs:
           echo "dev_tags=$DEV_TAGS" >> $GITHUB_OUTPUT
           echo "prod_tags=$PROD_TAGS" >> $GITHUB_OUTPUT
 
-      - name: 📄 Copy .env.devops to .env (for DEV)
-        run: cp .env.devops .env
+      # - name: 📄 Copy .env.devops to .env (for DEV)
+      #   run: cp .env.devops .env
 
       - name: 🏗️ Build and push DEV Docker image
         uses: docker/build-push-action@v5
