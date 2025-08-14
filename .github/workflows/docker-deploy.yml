@@ -76,13 +76,13 @@ jobs:
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
           echo "full_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
 
-          if [[ "$BRANCH_NAME" == "main" ]]; then
+          if [[ "$BRANCH_NAME" == "master" ]]; then
             DEV_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-latest"
-            PROD_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            # PROD_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           else
             CLEAN_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
             DEV_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-$CLEAN_BRANCH_NAME,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-sha-$SHORT_SHA"
-            PROD_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$CLEAN_BRANCH_NAME,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$SHORT_SHA"
+            # PROD_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$CLEAN_BRANCH_NAME,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$SHORT_SHA"
           fi
 
           echo "dev_tags=$DEV_TAGS" >> $GITHUB_OUTPUT
@@ -95,24 +95,24 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile-dev
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.tags.outputs.dev_tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 📄 Copy .env.devops to .env (for PROD)
-        run: cp .env.devops .env
+      # - name: 📄 Copy .env.devops to .env (for PROD)
+      #   run: cp .env.devops .env
 
-      - name: 🏗️ Build and push PROD Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile-prod
-          push: true
-          tags: ${{ steps.tags.outputs.prod_tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # - name: 🏗️ Build and push PROD Docker image
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: .
+      #     file: ./Dockerfile-prod
+      #     push: true
+      #     tags: ${{ steps.tags.outputs.prod_tags }}
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
 
       - name: 📝 Output image info
         run: |
@@ -120,6 +120,6 @@ jobs:
           echo "Registry: ${{ env.REGISTRY }}"
           echo "Repository: ${{ env.IMAGE_NAME }}"
           echo "DEV Tags: ${{ steps.tags.outputs.dev_tags }}"
-          echo "PROD Tags: ${{ steps.tags.outputs.prod_tags }}"
+          # echo "PROD Tags: ${{ steps.tags.outputs.prod_tags }}"
           echo "Branch: ${{ steps.tags.outputs.branch_name }}"
           echo "Commit: ${{ steps.tags.outputs.short_sha }}"
