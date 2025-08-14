@@ -1,0 +1,135 @@
+name: 🐳 Manual Docker Build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created, edited]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Check for build trigger
+        id: check-trigger
+        run: |
+          # Vérifier si c'est un commentaire sur une PR
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            COMMENT_BODY="${{ github.event.comment.body }}"
+            if [[ "$COMMENT_BODY" == *"build=docker"* ]]; then
+              echo "✅ Trigger détecté: build=docker dans le commentaire"
+              echo "should_build=true" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Pas de trigger build=docker dans le commentaire"
+              echo "should_build=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Pour les événements PR, vérifier le corps de la PR
+            PR_BODY="${{ github.event.pull_request.body }}"
+            if [[ "$PR_BODY" == *"build=docker"* ]]; then
+              echo "✅ Trigger détecté: build=docker dans le corps de la PR"
+              echo "should_build=true" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Pas de trigger build=docker dans le corps de la PR"
+              echo "should_build=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: 🐳 Set up Docker Buildx
+        if: steps.check-trigger.outputs.should_build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to Container Registry
+        if: steps.check-trigger.outputs.should_build == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📋 Generate tags
+        if: steps.check-trigger.outputs.should_build == 'true'
+        id: tags
+        run: |
+          # Obtenir le nom de la branche
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          # Nettoyer le nom de la branche (remplacer / par -)
+          CLEAN_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
+          # Générer le SHA court
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          
+          echo "branch_name=$CLEAN_BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "full_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          
+          # Créer les tags pour DEV
+          DEV_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-$CLEAN_BRANCH_NAME"
+          DEV_TAGS="$DEV_TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-manual-$SHORT_SHA"
+          
+          # Créer les tags pour PROD
+          PROD_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$CLEAN_BRANCH_NAME"
+          PROD_TAGS="$PROD_TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:manual-$SHORT_SHA"
+          
+          # Ajouter latest si c'est la branche main
+          if [[ "$BRANCH_NAME" == "main" ]]; then
+            DEV_TAGS="$DEV_TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-latest"
+            PROD_TAGS="$PROD_TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          fi
+          
+          echo "dev_tags=$DEV_TAGS" >> $GITHUB_OUTPUT
+          echo "prod_tags=$PROD_TAGS" >> $GITHUB_OUTPUT
+          echo "Generated dev tags: $DEV_TAGS"
+          echo "Generated prod tags: $PROD_TAGS"
+
+      - name: 🏗️ Build and push DEV Docker image
+        if: steps.check-trigger.outputs.should_build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile-dev
+          push: true
+          tags: ${{ steps.tags.outputs.dev_tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 🏗️ Build and push PROD Docker image
+        if: steps.check-trigger.outputs.should_build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile-prod
+          push: true
+          tags: ${{ steps.tags.outputs.prod_tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 📝 Output image info
+        if: steps.check-trigger.outputs.should_build == 'true'
+        run: |
+          echo "🐳 Images construites et poussées :"
+          echo "Registry: ${{ env.REGISTRY }}"
+          echo "Repository: ${{ env.IMAGE_NAME }}"
+          echo "DEV Tags: ${{ steps.tags.outputs.dev_tags }}"
+          echo "PROD Tags: ${{ steps.tags.outputs.prod_tags }}"
+          echo "Branch: ${{ steps.tags.outputs.branch_name }}"
+          echo "Commit: ${{ steps.tags.outputs.short_sha }}"
+
+      - name: 📋 Skip message
+        if: steps.check-trigger.outputs.should_build == 'false'
+        run: |
+          echo "⏭️  Build ignoré - Ajoutez 'build=docker' dans un commentaire de la PR pour déclencher le build"
+          echo "💡 Exemple: Ajoutez un commentaire avec 'build=docker' sur cette Pull Request" 
